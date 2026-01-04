@@ -1,47 +1,41 @@
-import aiohttp  # Eşzamansız HTTP istekleri için bir kütüphane
-import random
+import discord
+from discord.ext import commands
+from config import token
+from logic import Pokemon
 
-class Pokemon:
-    pokemons = {}
-    # Nesne başlatma (kurucu)
-    def __init__(self, pokemon_trainer):
-        self.pokemon_trainer = pokemon_trainer
-        self.pokemon_number = random.randint(1, 1000)
-        self.level = random.randint(1, 100)
-        self.health = random.randint(50, 150)   
-        self.name = None
-        if pokemon_trainer not in Pokemon.pokemons:
-            Pokemon.pokemons[pokemon_trainer] = self
+# Bot için yetkileri/intents ayarlama
+intents = discord.Intents.default()  # Varsayılan ayarların alınması
+intents.messages = True              # Botun mesajları işlemesine izin verme
+intents.message_content = True       # Botun mesaj içeriğini okumasına izin verme
+intents.guilds = True                # Botun sunucularla çalışmasına izin verme
+
+# Tanımlanmış bir komut önekine ve etkinleştirilmiş amaçlara sahip bir bot oluşturma
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Bot çalışmaya hazır olduğunda tetiklenen bir olay
+@bot.event
+async def on_ready():
+    print(f'Giriş yapıldı:  {bot.user.name}')  # Botun adını konsola çıktı olarak verir
+
+# '!go' komutu
+@bot.command()
+async def go(ctx):
+    author = ctx.author.name  # Mesaj yazarının adını alma
+    # Kullanıcının zaten bir Pokémon'u olup olmadığını kontrol edin. Eğer yoksa, o zaman...
+    if author not in Pokemon.pokemons.keys():
+        pokemon = Pokemon(author)  # Yeni bir Pokémon oluşturma
+        await ctx.send(await pokemon.info())  # Pokémon hakkında bilgi gönderilmesi
+        image_url = await pokemon.show_img()  # Pokémon resminin URL'sini alma
+        if image_url:
+            embed = discord.Embed()  # Gömülü mesajı oluşturma
+            embed.set_image(url=image_url)  # Pokémon'un görüntüsünün ayarlanması
+            await ctx.send(embed=embed)  # Görüntü içeren gömülü bir mesaj gönderme
         else:
-            self = Pokemon.pokemons[pokemon_trainer]
+            await ctx.send("Pokémonun görüntüsü yüklenemedi!")
+    else:
+        await ctx.send("Zaten kendi Pokémonunuzu oluşturdunuz!")  # Bir Pokémon'un daha önce oluşturulup oluşturulmadığını gösteren bir mesaj
+# Botun çalıştırılması
+bot.run(token)
 
-    async def get_name(self):
-        # PokeAPI aracılığıyla bir pokémonun adını almak için asenktron metot
-        url = f'https://pokeapi.co/api/v2/pokemon/{self.pokemon_number}'  # İstek için URL API
-        async with aiohttp.ClientSession() as session:  #  HTTP oturumu açma
-            async with session.get(url) as response:  # GET isteği gönderme
-                if response.status == 200:
-                    data = await response.json()  # JSON yanıtının alınması ve çözümlenmesi
-                    return data['forms'][0]['name']  #  Pokémon adını döndürme
-                else:
-                    return "Pikachu"  # İstek başarısız olursa varsayılan adı döndürür
-
-    async def info(self):
-        # Pokémon hakkında bilgi döndüren bir metot
-        if not self.name:
-            self.name = await self.get_name()  # Henüz yüklenmemişse bir adın geri alınması
-        return f"Pokémonunuzun ismi: {self.name}"  # Pokémon adını içeren dizeyi döndürür
-
-    async def show_img(self):
-        # PokeAPI aracılığıyla bir pokémon görüntüsünün URL'sini almak için asenktron metot
-
-        url = f'https://pokeapi.co/api/v2/pokemon/{self.pokemon_number}'  # İstek için URL API
-        async with aiohttp.ClientSession() as session:  #  HTTP oturumu açma
-            async with session.get(url) as response:  # GET isteği gönderme
-                if response.status == 200:
-                    data = await response.json()  # JSON yanıtının alınması ve çözümlenmesi
-                    return data['sprites']['front_default']  #  Pokémon adını döndürme
-                else:
-                    return None  # İstek başarısız olursa varsayılan adı döndürür
                 
 
